@@ -541,25 +541,27 @@ export default function ProjectDetailPage() {
                 )}
               </Box>
 
-              {/* Owner */}
-              <Card sx={{ mb: 2 }}>
-                <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>
-                      <AdminPanelSettings />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="subtitle1">
-                        You (Project Owner)
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {user.email}
-                      </Typography>
+              {/* Owner - only show if current user is the actual owner */}
+              {project.is_owner && (
+                <Card sx={{ mb: 2 }}>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Avatar sx={{ bgcolor: 'primary.main' }}>
+                        <AdminPanelSettings />
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle1">
+                          You (Project Owner)
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {user.email}
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Box>
-                  <Chip label="Owner" color="primary" />
-                </CardContent>
-              </Card>
+                    <Chip label="Owner" color="primary" />
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Pending Invitations */}
               {project.is_owner && (
@@ -569,7 +571,7 @@ export default function ProjectDetailPage() {
                 />
               )}
 
-              {/* Members */}
+              {/* All Project Members (including owner if they appear in members list) */}
               {project.members.map((member) => (
                 <Card key={member.id} sx={{ mb: 1 }}>
                   <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -580,6 +582,8 @@ export default function ProjectDetailPage() {
                       <Box>
                         <Typography variant="subtitle1">
                           {member.user_display_name || 'Unknown User'}
+                          {member.user_id === user.id && ' (You)'}
+                          {member.user_id === project.owner_id && member.user_id !== user.id && ' (Project Owner)'}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           {member.user_email || 'No email available'}
@@ -592,7 +596,10 @@ export default function ProjectDetailPage() {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Chip 
                         label={member.role} 
-                        color={member.role === 'admin' ? 'secondary' : 'default'}
+                        color={
+                          member.role === 'owner' ? 'primary' :
+                          member.role === 'admin' ? 'secondary' : 'default'
+                        }
                         size="small"
                       />
                       {(permissions.canRemoveMembers || permissions.canChangeRoles) && (

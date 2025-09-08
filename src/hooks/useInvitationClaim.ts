@@ -15,6 +15,28 @@ export function useInvitationClaim() {
 
   const claimPendingInvitations = async (userId: string, email: string) => {
     try {
+      // First check if there are any valid invitations to claim
+      const { data: pendingInvitations, error: checkError } = await supabase
+        .from('project_invitations')
+        .select('project_id, projects!inner(owner_id)')
+        .eq('invited_email', email)
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString());
+
+      if (checkError) {
+        console.error('Error checking invitations:', checkError);
+        return;
+      }
+
+      // Filter out invitations where user is already the project owner
+      const validInvitations = (pendingInvitations || []).filter(
+        inv => inv.projects.owner_id !== userId
+      );
+
+      if (validInvitations.length === 0) {
+        return; // No valid invitations to claim
+      }
+
       // Call the claim function we created in the database
       const { data, error } = await supabase.rpc('claim_project_invitations', {
         p_user_id: userId,
