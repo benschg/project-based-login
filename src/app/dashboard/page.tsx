@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth, signOut } from '@/hooks/useAuth';
+import { useEffect, useState } from 'react';
 import {
   Container,
   Typography,
@@ -21,9 +22,12 @@ import {
   FolderOpen,
   People,
   Settings,
-  Add
+  Add,
+  TrendingUp,
+  Assignment
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase/client';
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
@@ -51,7 +55,7 @@ export default function DashboardPage() {
 
   if (!user) {
     return (
-      <Container sx={{ py: 4 }}>
+      <Container sx={{ py: 2 }}>
         <Alert severity="error">
           Authentication required. Please sign in to access your dashboard.
         </Alert>
@@ -69,7 +73,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: 2 }}>
       <DashboardContent user={user} onSignOut={handleSignOut} />
     </Container>
   );
@@ -77,11 +81,81 @@ export default function DashboardPage() {
 
 // Dashboard content component
 function DashboardContent({ user, onSignOut }: { user: any; onSignOut: () => void }) {
-  const mockProjects = [
-    { id: 1, name: 'Website Redesign', members: 4, updated: '2 hours ago', status: 'Active' },
-    { id: 2, name: 'Mobile App', members: 2, updated: '1 day ago', status: 'Planning' },
-    { id: 3, name: 'Marketing Campaign', members: 6, updated: '3 days ago', status: 'Review' },
-  ];
+  const router = useRouter();
+  const [stats, setStats] = useState({
+    totalProjects: 0,
+    ownedProjects: 0,
+    sharedProjects: 0,
+    totalMembers: 0
+  });
+  const [recentProjects, setRecentProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      // Get owned projects
+      const { data: ownedProjects, error: ownedError } = await supabase
+        .from('projects')
+        .select('id, name, description, privacy_level, created_at, updated_at, owner_id')
+        .eq('owner_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(5);
+
+      if (ownedError) {
+        console.error('Owned projects fetch error:', ownedError);
+        return;
+      }
+
+      // Get member projects
+      const { data: membershipData, error: membershipError } = await supabase
+        .from('project_members')
+        .select('project_id, role, projects(id, name, description, privacy_level, created_at, updated_at, owner_id)')
+        .eq('user_id', user.id);
+
+      // Combine all projects
+      const allProjects = [...(ownedProjects || [])];
+      if (membershipData && !membershipError) {
+        membershipData.forEach(membership => {
+          if (membership.projects && !allProjects.find(p => p.id === membership.projects.id)) {
+            allProjects.push(membership.projects);
+          }
+        });
+      }
+
+      const projectsData = allProjects.slice(0, 5);
+
+      const projects = projectsData || [];
+      const ownedProjectsList = projects.filter(p => p.owner_id === user.id);
+      const sharedProjectsList = projects.filter(p => p.owner_id !== user.id);
+      
+      // Calculate total members across all projects
+      let totalMembers = 0;
+      for (const project of projects) {
+        const { count } = await supabase
+          .from('project_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('project_id', project.id);
+        totalMembers += (count || 0) + 1; // +1 for owner
+      }
+
+      setStats({
+        totalProjects: projects.length,
+        ownedProjects: ownedProjectsList.length,
+        sharedProjects: sharedProjectsList.length,
+        totalMembers
+      });
+
+      setRecentProjects(projects.slice(0, 3));
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
@@ -140,99 +214,156 @@ function DashboardContent({ user, onSignOut }: { user: any; onSignOut: () => voi
       </Card>
 
       {/* Quick Stats */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <FolderOpen color="primary" />
-                <Box>
-                  <Typography variant="h4">3</Typography>
-                  <Typography variant="body2" color="text.secondary">Projects</Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ cursor: 'pointer' }} onClick={() => router.push('/dashboard/projects')}>
+              <CardContent>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <FolderOpen color="primary" />
+                  <Box>
+                    <Typography variant="h4">{stats.totalProjects}</Typography>
+                    <Typography variant="body2" color="text.secondary">Total Projects</Typography>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <People color="primary" />
+                  <Box>
+                    <Typography variant="h4">{stats.totalMembers}</Typography>
+                    <Typography variant="body2" color="text.secondary">Team Members</Typography>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Assignment color="primary" />
+                  <Box>
+                    <Typography variant="h4">{stats.ownedProjects}</Typography>
+                    <Typography variant="body2" color="text.secondary">Owned Projects</Typography>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <TrendingUp color="primary" />
+                  <Box>
+                    <Typography variant="h4">{stats.sharedProjects}</Typography>
+                    <Typography variant="body2" color="text.secondary">Shared Projects</Typography>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <People color="primary" />
-                <Box>
-                  <Typography variant="h4">12</Typography>
-                  <Typography variant="body2" color="text.secondary">Team Members</Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <DashboardIcon color="primary" />
-                <Box>
-                  <Typography variant="h4">7</Typography>
-                  <Typography variant="body2" color="text.secondary">Active Tasks</Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Settings color="primary" />
-                <Box>
-                  <Typography variant="h4">2</Typography>
-                  <Typography variant="body2" color="text.secondary">Notifications</Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      )}
 
       {/* Recent Projects */}
       <Card sx={{ mb: 4 }}>
         <CardContent>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
             <Typography variant="h5">Recent Projects</Typography>
-            <Button startIcon={<Add />} variant="outlined" size="small">
-              New Project
-            </Button>
+            <Stack direction="row" spacing={1}>
+              <Button 
+                startIcon={<Add />} 
+                variant="outlined" 
+                size="small"
+                onClick={() => router.push('/dashboard/projects')}
+              >
+                New Project
+              </Button>
+              <Button 
+                variant="text" 
+                size="small"
+                onClick={() => router.push('/dashboard/projects')}
+              >
+                View All
+              </Button>
+            </Stack>
           </Stack>
           
-          <Stack spacing={2}>
-            {mockProjects.map((project) => (
-              <Box
-                key={project.id}
-                sx={{
-                  p: 3,
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                  '&:hover': { bgcolor: 'grey.50' }
-                }}
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+              <CircularProgress />
+            </Box>
+          ) : recentProjects.length > 0 ? (
+            <Stack spacing={2}>
+              {recentProjects.map((project) => (
+                <Box
+                  key={project.id}
+                  sx={{
+                    p: 3,
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'grey.50' }
+                  }}
+                  onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                >
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Box>
+                      <Typography variant="h6">{project.name}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {project.description || 'No description'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Updated {new Date(project.updated_at).toLocaleDateString()}
+                      </Typography>
+                    </Box>
+                    <Stack direction="column" alignItems="flex-end" spacing={1}>
+                      <Chip
+                        label={project.privacy_level}
+                        size="small"
+                        color={
+                          project.privacy_level === 'public' ? 'success' :
+                          project.privacy_level === 'team' ? 'info' : 'default'
+                        }
+                        variant="outlined"
+                      />
+                      {project.owner_id === user.id && (
+                        <Chip label="Owner" color="primary" size="small" />
+                      )}
+                    </Stack>
+                  </Stack>
+                </Box>
+              ))}
+            </Stack>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 2 }}>
+              <FolderOpen sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No projects yet
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Create your first project to get started with collaboration
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => router.push('/dashboard/projects')}
               >
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Box>
-                    <Typography variant="h6">{project.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {project.members} members • Updated {project.updated}
-                    </Typography>
-                  </Box>
-                  <Chip
-                    label={project.status}
-                    size="small"
-                    color={project.status === 'Active' ? 'success' : 'default'}
-                  />
-                </Stack>
-              </Box>
-            ))}
-          </Stack>
+                Create Your First Project
+              </Button>
+            </Box>
+          )}
         </CardContent>
       </Card>
 
