@@ -39,6 +39,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase/client';
 import InviteMembersDialog from '@/components/projects/InviteMembersDialog';
+import PendingInvitations from '@/components/projects/PendingInvitations';
 import { useProjectPermissions } from '@/hooks/useProjectPermissions';
 
 interface ProjectMember {
@@ -194,7 +195,9 @@ export default function ProjectDetailPage() {
     if (!selectedMember) return;
 
     try {
-      const { error } = await supabase
+      console.log('Removing member with ID:', selectedMember.id);
+      
+      const { error, count } = await supabase
         .from('project_members')
         .delete()
         .eq('id', selectedMember.id);
@@ -203,6 +206,15 @@ export default function ProjectDetailPage() {
         console.error('Error removing member:', error);
         return;
       }
+
+      console.log('Deleted rows count:', count);
+      
+      // Also remove any related invitations if they exist
+      await supabase
+        .from('project_invitations')
+        .delete()
+        .eq('project_id', projectId)
+        .eq('accepted_by', selectedMember.user_id);
 
       // Log GDPR action
       try {
@@ -221,7 +233,9 @@ export default function ProjectDetailPage() {
         console.warn('Failed to log GDPR action:', logError);
       }
 
-      loadProject(); // Refresh project data
+      // Force refresh the project data
+      await loadProject(); // Refresh project data
+      console.log('Project data refreshed after member removal');
     } catch (err) {
       console.error('Error removing member:', err);
     }
@@ -546,6 +560,14 @@ export default function ProjectDetailPage() {
                   <Chip label="Owner" color="primary" />
                 </CardContent>
               </Card>
+
+              {/* Pending Invitations */}
+              {project.is_owner && (
+                <PendingInvitations 
+                  projectId={projectId} 
+                  onInvitationRevoked={handleMembersInvited}
+                />
+              )}
 
               {/* Members */}
               {project.members.map((member) => (

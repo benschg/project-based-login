@@ -32,6 +32,7 @@ import {
   Person
 } from '@mui/icons-material';
 import { useAuth, signOut } from '@/hooks/useAuth';
+import { useInvitationClaim } from '@/hooks/useInvitationClaim';
 import Breadcrumbs from '@/components/common/Breadcrumbs';
 
 const DRAWER_WIDTH = 240;
@@ -69,6 +70,9 @@ export default function DashboardLayout({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user } = useAuth();
+  
+  // Auto-claim any pending invitations for this user
+  useInvitationClaim();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);

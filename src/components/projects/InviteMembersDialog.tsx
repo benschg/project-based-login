@@ -120,22 +120,20 @@ export default function InviteMembersDialog({
 
       for (const invite of invites) {
         try {
-          // In a real app, you would:
-          // 1. Check if user exists in your system
-          // 2. Send an email invitation
-          // 3. Create a pending invitation record
-          // 4. Add user to project when they accept
-
-          // For demo purposes, we'll create a mock user and add them directly
-          const mockUserId = `mock-user-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+          // Hobby plan compatible: Create invitation record without sending emails
+          // Users with matching emails can later claim these invitations when they sign up
           
+          // Create a pending invitation record
           const { error: insertError } = await supabase
-            .from('project_members')
+            .from('project_invitations')
             .insert({
               project_id: projectId,
-              user_id: mockUserId,
+              invited_email: invite.email,
               role: invite.role,
-              joined_at: new Date().toISOString()
+              invited_by: user.id,
+              status: 'pending',
+              created_at: new Date().toISOString(),
+              expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
             });
 
           if (insertError) {
@@ -148,11 +146,12 @@ export default function InviteMembersDialog({
             try {
               await supabase.rpc('log_gdpr_action', {
                 p_user_id: user.id,
-                p_action: 'member_invited',
+                p_action: 'invitation_created',
                 p_details: { 
                   project_id: projectId,
                   invited_email: invite.email,
-                  role: invite.role
+                  role: invite.role,
+                  method: 'hobby_plan_invitation'
                 },
                 p_ip_address: null,
                 p_user_agent: navigator.userAgent,
@@ -168,7 +167,7 @@ export default function InviteMembersDialog({
       }
 
       if (successCount > 0) {
-        setSuccess(`Successfully sent ${successCount} invitation${successCount > 1 ? 's' : ''}`);
+        setSuccess(`Successfully created ${successCount} invitation${successCount > 1 ? 's' : ''}. Users will be added when they sign up with the invited email address.`);
         setInvites([]);
         onMembersInvited();
         
@@ -228,7 +227,7 @@ export default function InviteMembersDialog({
           )}
 
           <Typography variant="body2" color="text.secondary">
-            Invite team members to collaborate on this project. They will receive an email invitation to join.
+            Invite team members to collaborate on this project. When someone signs up with an invited email address, they will automatically be added to the project.
           </Typography>
 
           {/* Add New Invite */}
