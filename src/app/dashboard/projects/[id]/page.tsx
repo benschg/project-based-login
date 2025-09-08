@@ -301,6 +301,21 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const getTotalMemberCount = () => {
+    if (!project) return 0;
+    
+    // Get unique members by user_id
+    const uniqueMembers = project.members.filter((member, index, arr) => 
+      arr.findIndex(m => m.user_id === member.user_id) === index
+    );
+    
+    // Check if owner is already in the members list
+    const ownerInMembersList = uniqueMembers.some(m => m.user_id === project.owner_id);
+    
+    // If owner is not in members list, add 1, otherwise just return unique count
+    return ownerInMembersList ? uniqueMembers.length : uniqueMembers.length + 1;
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -416,7 +431,7 @@ export default function ProjectDetailPage() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
           <Tab label="Overview" />
-          <Tab label={`Members (${project.members.length + 1})`} />
+          <Tab label={`Members (${getTotalMemberCount()})`} />
           <Tab label="Activity" />
         </Tabs>
       </Box>
@@ -434,7 +449,7 @@ export default function ProjectDetailPage() {
                 <Grid item xs={6} sm={3}>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h4" color="primary">
-                      {project.members.length + 1}
+                      {getTotalMemberCount()}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Total Members
@@ -571,8 +586,12 @@ export default function ProjectDetailPage() {
                 />
               )}
 
-              {/* All Project Members (including owner if they appear in members list) */}
-              {project.members.map((member) => (
+              {/* All Project Members (deduplicated) */}
+              {project.members
+                .filter((member, index, arr) => 
+                  arr.findIndex(m => m.user_id === member.user_id) === index
+                )
+                .map((member) => (
                 <Card key={member.id} sx={{ mb: 1 }}>
                   <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -615,7 +634,9 @@ export default function ProjectDetailPage() {
                 </Card>
               ))}
 
-              {project.members.length === 0 && (
+              {project.members.filter((member, index, arr) => 
+                arr.findIndex(m => m.user_id === member.user_id) === index
+              ).length === 0 && (
                 <Box sx={{ textAlign: 'center', py: 2 }}>
                   <People sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                   <Typography variant="h6" color="text.secondary" gutterBottom>
