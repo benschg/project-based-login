@@ -14,7 +14,7 @@ import {
   Security, 
   Group, 
   Dashboard,
-  Privacy
+  Shield
 } from '@mui/icons-material';
 
 export default function HomePage() {
@@ -35,7 +35,7 @@ export default function HomePage() {
       description: 'Complete admin panel for user and project management'
     },
     {
-      icon: <Privacy fontSize="large" color="primary" />,
+      icon: <Shield fontSize="large" color="primary" />,
       title: 'GDPR Compliant',
       description: 'Built with privacy by design and full GDPR compliance'
     }

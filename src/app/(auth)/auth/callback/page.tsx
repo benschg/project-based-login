@@ -12,25 +12,47 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Get the session from the URL hash
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        // Handle the auth callback from magic link
+        const urlParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = urlParams.get('access_token');
+        const refreshToken = urlParams.get('refresh_token');
         
-        if (sessionError) {
-          console.error('Session error:', sessionError);
+        if (accessToken && refreshToken) {
+          // Set the session with the tokens from the URL
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+          
+          if (error) {
+            console.error('Session set error:', error);
+            setError('Authentication failed. Please try signing in again.');
+            return;
+          }
+        }
+        
+        // Now get the current session
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Session error:', error);
           setError('Authentication failed. Please try signing in again.');
           return;
         }
 
-        if (session?.user) {
+        if (data?.session?.user) {
+          const session = data.session;
+          const user = session.user;
+          
           // Log successful authentication for GDPR compliance
           try {
             await supabase.rpc('log_gdpr_action', {
-              p_user_id: session.user.id,
+              p_user_id: user.id,
               p_action: 'account_created',
               p_details: { 
-                email: session.user.email,
+                email: user.email,
                 provider: 'magic_link',
-                confirmed_at: session.user.email_confirmed_at
+                confirmed_at: user.email_confirmed_at
               },
               p_ip_address: null,
               p_user_agent: navigator.userAgent,
@@ -40,7 +62,7 @@ export default function AuthCallback() {
             const { error: prefsError } = await supabase
               .from('user_preferences')
               .upsert({
-                user_id: session.user.id,
+                user_id: user.id,
                 data_processing_consent: true, // Required for service to function
                 consent_date: new Date().toISOString(),
               }, {
