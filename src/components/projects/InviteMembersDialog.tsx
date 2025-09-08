@@ -123,43 +123,24 @@ export default function InviteMembersDialog({
           // Hobby plan compatible: Create invitation record without sending emails
           // Users with matching emails can later claim these invitations when they sign up
           
-          // Create a pending invitation record
-          const { error: insertError } = await supabase
-            .from('project_invitations')
-            .insert({
-              project_id: projectId,
-              invited_email: invite.email,
-              role: invite.role,
-              invited_by: user.id,
-              status: 'pending',
-              created_at: new Date().toISOString(),
-              expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
-            });
+          // Create a pending invitation record via API
+          const response = await fetch(`/api/projects/${projectId}/invite`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: invite.email,
+              role: invite.role
+            }),
+          });
 
-          if (insertError) {
-            console.error('Error adding member:', insertError);
-            errorCount++;
-          } else {
-            successCount++;
-            
-            // Log GDPR action
-            try {
-              await supabase.rpc('log_gdpr_action', {
-                p_user_id: user.id,
-                p_action: 'invitation_created',
-                p_details: { 
-                  project_id: projectId,
-                  invited_email: invite.email,
-                  role: invite.role,
-                  method: 'hobby_plan_invitation'
-                },
-                p_ip_address: null,
-                p_user_agent: navigator.userAgent,
-              });
-            } catch (logError) {
-              console.warn('Failed to log GDPR action:', logError);
-            }
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to send invite');
           }
+
+          successCount++;
         } catch (inviteError) {
           console.error('Error processing invite:', inviteError);
           errorCount++;

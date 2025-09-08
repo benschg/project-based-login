@@ -54,39 +54,24 @@ export default function CreateProjectDialog({ open, onClose, onProjectCreated }:
         return;
       }
 
-      const { data, error: insertError } = await supabase
-        .from('projects')
-        .insert({
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           name: formData.name.trim(),
-          description: formData.description.trim() || null,
-          privacy_level: formData.privacy_level,
-          owner_id: user.id
-        })
-        .select()
-        .single();
+          description: formData.description.trim() || undefined,
+          privacyLevel: formData.privacy_level as 'private' | 'team' | 'public'
+        }),
+      });
 
-      if (insertError) {
-        console.error('Project creation error:', insertError);
-        setError('Failed to create project. Please try again.');
-        return;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create project');
       }
 
-      // Log GDPR action
-      try {
-        await supabase.rpc('log_gdpr_action', {
-          p_user_id: user.id,
-          p_action: 'project_created',
-          p_details: { 
-            project_id: data.id,
-            project_name: formData.name,
-            privacy_level: formData.privacy_level
-          },
-          p_ip_address: null,
-          p_user_agent: navigator.userAgent,
-        });
-      } catch (logError) {
-        console.warn('Failed to log GDPR action:', logError);
-      }
+      const { project } = await response.json();
 
       // Reset form and close dialog
       setFormData({ name: '', description: '', privacy_level: 'private' });

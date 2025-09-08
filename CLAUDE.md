@@ -6,6 +6,7 @@ A React-based application with passwordless email authentication via Supabase, m
 ## Tech Stack
 - **Frontend**: Next.js 14 (App Router) + TypeScript + Material-UI (MUI)
 - **Backend**: Supabase (PostgreSQL + Built-in Email Auth + APIs)
+- **ORM**: Drizzle ORM with TypeScript for type-safe database operations
 - **Email**: Supabase built-in email service (magic links)
 - **Deployment**: Vercel Hobby plan
 - **State Management**: React Context + SWR for data fetching
@@ -348,3 +349,215 @@ vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY
 5. Configure email templates
 
 This approach provides a complete, GDPR-compliant solution with zero email infrastructure costs while maintaining professional functionality.
+
+## Drizzle ORM Implementation
+
+### Migration to Type-Safe Database Operations
+
+The project has been fully converted from direct Supabase queries to Drizzle ORM for better type safety, maintainability, and SQL-like syntax.
+
+### Database Configuration
+
+**Configuration Files:**
+```typescript
+// drizzle.config.ts
+import { defineConfig } from 'drizzle-kit';
+import * as dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.local' });
+
+export default defineConfig({
+  schema: './src/lib/db/schema.ts',
+  out: './drizzle',
+  dialect: 'postgresql',
+  dbCredentials: {
+    url: process.env.DATABASE_URL!,
+  },
+  verbose: true,
+  strict: true,
+});
+```
+
+**Database Connection:**
+```typescript
+// src/lib/db/index.ts
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import * as schema from './schema';
+
+const connectionString = process.env.DATABASE_URL!;
+const client = postgres(connectionString, { prepare: false });
+export const db = drizzle(client, { schema });
+
+export * from './schema';
+```
+
+### Schema Definition
+
+**Complete Drizzle Schema:**
+```typescript
+// src/lib/db/schema.ts
+import {
+  pgTable,
+  uuid,
+  text,
+  timestamp,
+  boolean,
+  jsonb,
+  index,
+  unique,
+  pgEnum,
+  inet
+} from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+
+// Enums
+export const privacyLevelEnum = pgEnum('privacy_level', ['private', 'team', 'public']);
+export const roleEnum = pgEnum('member_role', ['owner', 'admin', 'member', 'viewer']);
+export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'declined', 'expired']);
+export const gdprActionEnum = pgEnum('gdpr_action', [
+  'consent_given',
+  'consent_withdrawn', 
+  'data_exported',
+  'data_deleted',
+  'account_created',
+  'member_invited',
+  'invitation_created',
+  'member_removed',
+  'member_role_changed',
+  'invitations_claimed'
+]);
+
+// Tables with proper relationships and constraints
+export const projects = pgTable('projects', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  description: text('description'),
+  ownerId: uuid('owner_id').references(() => sql`auth.users(id)`, { onDelete: 'cascade' }).notNull(),
+  privacyLevel: privacyLevelEnum('privacy_level').default('private').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  ownerIdIdx: index('idx_projects_owner_id').on(table.ownerId),
+  createdAtIdx: index('idx_projects_created_at').on(table.createdAt),
+}));
+
+// Additional tables follow similar pattern...
+```
+
+### Service Layer Architecture
+
+**Project Service:**
+```typescript
+// src/lib/services/projectService.ts
+import { db, projects, projectMembers, projectInvitations, gdprAuditLog } from '@/lib/db';
+import { eq, and, sql, count } from 'drizzle-orm';
+
+export const projectService = {
+  async createProject(data: CreateProjectData): Promise<{ id: string }> {
+    const [project] = await db.insert(projects).values({
+      name: data.name,
+      description: data.description || null,
+      privacyLevel: data.privacyLevel,
+      ownerId: data.ownerId,
+    }).returning({ id: projects.id });
+
+    return project;
+  },
+
+  async getUserProjects(userId: string): Promise<ProjectSummary[]> {
+    // Type-safe queries with proper joins and aggregations
+    // Implementation handles owned and member projects with deduplication
+  },
+
+  async inviteMember(projectId: string, email: string, role: string, invitedBy: string) {
+    // Safe member invitation with proper constraints
+  }
+};
+```
+
+### Migration Scripts
+
+**Package.json Scripts:**
+```json
+{
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit push", 
+    "db:studio": "drizzle-kit studio"
+  }
+}
+```
+
+**Usage:**
+```bash
+# Generate migration files from schema changes
+yarn db:generate
+
+# Apply migrations to database
+yarn db:migrate
+
+# Open Drizzle Studio for database management
+yarn db:studio
+```
+
+### Environment Variables Update
+
+**Required Addition:**
+```env
+# Database URL (derived from Supabase URL - needs actual password)
+DATABASE_URL="postgres://postgres:[password]@db.fppuslikpmgilwpxxmze.supabase.co:5432/postgres"
+
+# Existing Supabase vars
+NEXT_PUBLIC_SUPABASE_URL=https://fppuslikpmgilwpxxmze.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+### Component Integration
+
+**Updated Components:**
+- **CreateProjectDialog**: Uses `projectService.createProject()`
+- **InviteMembersDialog**: Uses `projectService.inviteMember()`  
+- **Projects Dashboard**: Uses `projectService.getUserProjects()`
+- **useInvitationClaim**: Uses `authService.claimPendingInvitations()`
+
+**Example Component Update:**
+```typescript
+// Before (Supabase direct)
+const { data, error } = await supabase
+  .from('projects')
+  .insert({ name, description, owner_id: user.id })
+  .select()
+  .single();
+
+// After (Drizzle service)
+const project = await projectService.createProject({
+  name,
+  description,
+  privacyLevel: 'private',
+  ownerId: user.id
+});
+```
+
+### Key Benefits of Drizzle Integration
+
+1. **Type Safety**: Full TypeScript support with compile-time validation
+2. **SQL-like Syntax**: Familiar and readable query construction
+3. **Performance**: Optimized queries with proper indexing
+4. **Maintainability**: Clean separation of concerns with service layer
+5. **Developer Experience**: Drizzle Studio for visual database management
+6. **Migration Management**: Automated schema versioning and deployment
+
+### Migration Commands for Production
+
+```bash
+# Development workflow
+yarn db:generate  # Generate migration files
+yarn db:migrate   # Apply to development database
+
+# Production deployment
+# Migrations can be automated via CI/CD or Vercel build process
+# DATABASE_URL environment variable handles different environments
+```
+
+This Drizzle ORM integration provides enterprise-grade database operations while maintaining the simplicity and cost-effectiveness of the original Supabase + Vercel setup.

@@ -58,76 +58,26 @@ export default function ProjectsPage() {
       setLoading(true);
       setError('');
 
-      // Get owned projects first
-      const { data: ownedProjects, error: ownedError } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('owner_id', user.id);
-
-      if (ownedError) {
-        console.error('Owned projects fetch error:', ownedError);
-        setError('Failed to load owned projects');
-        return;
+      const response = await fetch('/api/projects');
+      if (!response.ok) {
+        throw new Error('Failed to load projects');
       }
 
-      // Get member projects
-      const { data: membershipData, error: membershipError } = await supabase
-        .from('project_members')
-        .select('project_id, role, projects(*)')
-        .eq('user_id', user.id);
-
-      if (membershipError) {
-        console.error('Member projects fetch error:', membershipError);
-      }
-
-      // Combine all projects
-      const allProjects = [...(ownedProjects || [])];
-      if (membershipData) {
-        membershipData.forEach(membership => {
-          if (membership.projects && !allProjects.find(p => p.id === membership.projects.id)) {
-            allProjects.push({
-              ...membership.projects,
-              user_role: membership.role
-            });
-          }
-        });
-      }
-
-      const projectsData = allProjects;
-
-      // Transform data to include member count and user role
-      const transformedProjects: Project[] = await Promise.all(
-        (projectsData || []).map(async (project) => {
-          // Get member count
-          const { count: memberCount } = await supabase
-            .from('project_members')
-            .select('*', { count: 'exact', head: true })
-            .eq('project_id', project.id);
-
-          // Determine user's role
-          const isOwner = project.owner_id === user.id;
-          let userRole: 'owner' | 'admin' | 'member' = 'member';
-          
-          if (isOwner) {
-            userRole = 'owner';
-          } else if (project.project_members?.length > 0) {
-            userRole = project.project_members[0].role || 'member';
-          }
-
-          return {
-            id: project.id,
-            name: project.name,
-            description: project.description,
-            privacy_level: project.privacy_level,
-            created_at: project.created_at,
-            updated_at: project.updated_at,
-            owner_id: project.owner_id,
-            is_owner: isOwner,
-            member_count: (memberCount || 0) + 1, // +1 for owner
-            role: userRole
-          };
-        })
-      );
+      const { projects: projectSummaries } = await response.json();
+      
+      // Transform to match the existing interface
+      const transformedProjects: Project[] = projectSummaries.map((project: any) => ({
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        privacy_level: project.privacyLevel,
+        created_at: new Date(project.createdAt).toISOString(),
+        updated_at: new Date(project.updatedAt).toISOString(),
+        owner_id: project.ownerId,
+        is_owner: project.isOwner,
+        member_count: project.memberCount,
+        role: project.role
+      }));
 
       setProjects(transformedProjects);
     } catch (err) {
