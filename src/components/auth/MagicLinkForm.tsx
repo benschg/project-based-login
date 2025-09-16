@@ -144,11 +144,11 @@ export default function MagicLinkForm() {
           <Box sx={{ mt: 3, pt: 3, borderTop: 1, borderColor: 'divider' }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
               By signing in, you agree to our{' '}
-              <MuiLink component={Link} href="/privacy/policy" underline="hover">
+              <MuiLink component={Link} href="/privacy" underline="hover">
                 Privacy Policy
               </MuiLink>{' '}
               and{' '}
-              <MuiLink component={Link} href="/privacy/terms" underline="hover">
+              <MuiLink component={Link} href="/terms" underline="hover">
                 Terms of Service
               </MuiLink>
               .

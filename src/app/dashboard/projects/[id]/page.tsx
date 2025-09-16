@@ -34,12 +34,15 @@ import {
   Public,
   Person,
   AdminPanelSettings,
-  Delete
+  Delete,
+  AccountBalance,
+  TrendingUp
 } from '@mui/icons-material';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase/client';
 import InviteMembersDialog from '@/components/projects/InviteMembersDialog';
 import PendingInvitations from '@/components/projects/PendingInvitations';
+import AssignBudgetDialog from '@/components/projects/AssignBudgetDialog';
 import { useProjectPermissions } from '@/hooks/useProjectPermissions';
 
 interface ProjectMember {
@@ -61,6 +64,8 @@ interface ProjectDetails {
   owner_id: string;
   is_owner: boolean;
   members: ProjectMember[];
+  budget_amount?: string;
+  budget_currency?: 'usd' | 'eur' | 'gbp';
 }
 
 export default function ProjectDetailPage() {
@@ -75,6 +80,8 @@ export default function ProjectDetailPage() {
   const [memberMenuAnchor, setMemberMenuAnchor] = useState<null | HTMLElement>(null);
   const [selectedMember, setSelectedMember] = useState<ProjectMember | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [assignBudgetDialogOpen, setAssignBudgetDialogOpen] = useState(false);
+  const [userBalance, setUserBalance] = useState<{ balance: string; currency: string } | null>(null);
 
   const projectId = params?.id as string;
   
@@ -94,7 +101,7 @@ export default function ProjectDetailPage() {
       // Get project details
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
-        .select('*')
+        .select('*, budget_amount, budget_currency')
         .eq('id', projectId)
         .single();
 
@@ -174,8 +181,28 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (!authLoading && user) {
       loadProject();
+      loadUserBalance();
     }
   }, [user, authLoading, projectId]);
+
+  const loadUserBalance = async () => {
+    if (!user) return;
+
+    try {
+      const response = await fetch('/api/credits/balance');
+      if (response.ok) {
+        const balance = await response.json();
+        setUserBalance(balance);
+      }
+    } catch (err) {
+      console.error('Failed to load user balance:', err);
+    }
+  };
+
+  const handleBudgetAssigned = () => {
+    loadProject();
+    loadUserBalance();
+  };
 
   const handleMemberMenuOpen = (event: React.MouseEvent<HTMLElement>, member: ProjectMember) => {
     setMemberMenuAnchor(event.currentTarget);
@@ -326,6 +353,13 @@ export default function ProjectDetailPage() {
     });
   };
 
+  const formatCurrency = (amount: string | undefined, currency: string | undefined) => {
+    if (!amount) return '$0.00';
+    const symbols = { usd: '$', eur: '€', gbp: '£' };
+    const symbol = symbols[(currency as keyof typeof symbols) || 'usd'] || '$';
+    return `${symbol}${parseFloat(amount).toFixed(2)}`;
+  };
+
   if (authLoading || !user) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
@@ -432,6 +466,7 @@ export default function ProjectDetailPage() {
         <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
           <Tab label="Overview" />
           <Tab label={`Members (${getTotalMemberCount()})`} />
+          <Tab label="Budget" />
           <Tab label="Activity" />
         </Tabs>
       </Box>
@@ -653,6 +688,77 @@ export default function ProjectDetailPage() {
       )}
 
       {activeTab === 2 && (
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                <AccountBalance color="primary" />
+                <Typography variant="h6">Project Budget</Typography>
+              </Box>
+              
+              <Typography variant="h3" color="primary" gutterBottom>
+                {formatCurrency(project?.budget_amount, project?.budget_currency)}
+              </Typography>
+              
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Available budget for this project
+              </Typography>
+              
+              {(project?.is_owner || userRole === 'admin') && (
+                <Button
+                  variant="contained"
+                  startIcon={<TrendingUp />}
+                  onClick={() => setAssignBudgetDialogOpen(true)}
+                  disabled={!userBalance || parseFloat(userBalance.balance) <= 0}
+                >
+                  Assign Budget
+                </Button>
+              )}
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Your Account Balance
+              </Typography>
+              
+              {userBalance ? (
+                <>
+                  <Typography variant="h4" color="text.secondary" gutterBottom>
+                    {formatCurrency(userBalance.balance, userBalance.currency)}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Available for budget assignments
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <Typography variant="h4" color="text.secondary" gutterBottom>
+                    Loading...
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Fetching your account balance
+                  </Typography>
+                </>
+              )}
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Budget Usage
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Budget usage tracking feature coming soon...
+              </Typography>
+            </Paper>
+          </Grid>
+        </Grid>
+      )}
+
+      {activeTab === 3 && (
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
             Recent Activity
@@ -697,6 +803,17 @@ export default function ProjectDetailPage() {
         projectId={projectId}
         projectName={project.name}
         onMembersInvited={handleMembersInvited}
+      />
+
+      {/* Assign Budget Dialog */}
+      <AssignBudgetDialog
+        open={assignBudgetDialogOpen}
+        onClose={() => setAssignBudgetDialogOpen(false)}
+        projectId={projectId}
+        projectName={project.name}
+        currentBalance={userBalance?.balance}
+        currency={userBalance?.currency}
+        onSuccess={handleBudgetAssigned}
       />
     </Container>
   );

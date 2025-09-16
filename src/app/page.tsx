@@ -76,10 +76,10 @@ export default function HomePage() {
           >
             Get Started
           </Button>
-          <Button 
-            variant="outlined" 
+          <Button
+            variant="outlined"
             size="large"
-            href="/privacy/policy"
+            href="/privacy"
             sx={{ px: 4, py: 1.5 }}
           >
             Privacy Policy
@@ -140,9 +140,25 @@ export default function HomePage() {
           textAlign: 'center',
         }}
       >
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Built with privacy by design. Your data remains yours.
         </Typography>
+        <Stack direction="row" spacing={2} justifyContent="center">
+          <Button
+            size="small"
+            href="/privacy"
+            sx={{ textTransform: 'none' }}
+          >
+            Privacy Policy
+          </Button>
+          <Button
+            size="small"
+            href="/terms"
+            sx={{ textTransform: 'none' }}
+          >
+            Terms of Service
+          </Button>
+        </Stack>
       </Box>
     </Container>
   );

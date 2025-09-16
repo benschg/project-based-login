@@ -29,7 +29,8 @@ import {
   Settings,
   ExitToApp,
   AccountCircle,
-  Person
+  Person,
+  AccountBalance
 } from '@mui/icons-material';
 import { useAuth, signOut } from '@/hooks/useAuth';
 import { useInvitationClaim } from '@/hooks/useInvitationClaim';
@@ -47,6 +48,11 @@ const navigationItems = [
     label: 'Projects',
     path: '/dashboard/projects',
     icon: <FolderOpen />
+  },
+  {
+    label: 'Credits',
+    path: '/dashboard/credits',
+    icon: <AccountBalance />
   },
   {
     label: 'Users',
