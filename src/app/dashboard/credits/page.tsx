@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect, Suspense } from 'react';
 import {
   Container,
   Paper,
@@ -12,7 +14,7 @@ import {
   CardContent,
   Grid,
 } from '@mui/material';
-import { AccountBalance, CreditCard, History } from '@mui/icons-material';
+import { AccountBalance, CreditCard } from '@mui/icons-material';
 import CreditPurchaseDialog from '@/components/credits/CreditPurchaseDialog';
 import TransactionHistory from '@/components/credits/TransactionHistory';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,7 +25,7 @@ interface UserBalance {
   currency: 'usd' | 'eur' | 'gbp';
 }
 
-export default function CreditsPage() {
+function CreditsPageContent() {
   const [balance, setBalance] = useState<UserBalance | null>(null);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,7 +96,7 @@ export default function CreditsPage() {
       )}
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" gap={1} mb={2}>
@@ -123,7 +125,7 @@ export default function CreditsPage() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -145,7 +147,7 @@ export default function CreditsPage() {
           </Card>
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               How Credits Work
@@ -161,7 +163,7 @@ export default function CreditsPage() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <TransactionHistory limit={50} />
         </Grid>
       </Grid>
@@ -173,5 +175,13 @@ export default function CreditsPage() {
         currency={balance?.currency}
       />
     </Container>
+  );
+}
+
+export default function CreditsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CreditsPageContent />
+    </Suspense>
   );
 }

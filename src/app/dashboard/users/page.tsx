@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+export const dynamic = 'force-dynamic';
+
+import { useEffect, useState, useCallback } from 'react';
 import {
   Container,
   Typography,
@@ -21,7 +23,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   IconButton,
   Menu,
   MenuItem,
@@ -36,10 +37,6 @@ import {
   AdminPanelSettings,
   MoreVert,
   Email,
-  CalendarToday,
-  Security,
-  Delete,
-  Edit,
   Block,
   CheckCircle
 } from '@mui/icons-material';
@@ -48,10 +45,10 @@ import { supabase } from '@/lib/supabase/client';
 
 interface UserData {
   id: string;
-  email: string;
+  email: string | undefined;
   created_at: string;
-  email_confirmed_at: string | null;
-  last_sign_in_at: string | null;
+  email_confirmed_at: string | null | undefined;
+  last_sign_in_at: string | null | undefined;
   total_projects: number;
   owned_projects: number;
   shared_projects: number;
@@ -69,13 +66,7 @@ export default function UsersPage() {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [userDetailDialog, setUserDetailDialog] = useState(false);
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      loadUsers();
-    }
-  }, [user, authLoading]);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -104,7 +95,11 @@ export default function UsersPage() {
       if (membershipData && !membershipError) {
         membershipData.forEach(m => {
           if (m.projects) {
-            accessibleProjectIds.add(m.projects.id);
+            // Handle both single project and array of projects
+            const project = Array.isArray(m.projects) ? m.projects[0] : m.projects;
+            if (project) {
+              accessibleProjectIds.add(project.id);
+            }
           }
         });
       }
@@ -120,9 +115,17 @@ export default function UsersPage() {
       }
 
       // Combine project data
+      const memberProjects = membershipData?.map(m => {
+        if (m.projects) {
+          // Handle both single project and array of projects
+          return Array.isArray(m.projects) ? m.projects[0] : m.projects;
+        }
+        return null;
+      }).filter(Boolean) || [];
+
       const projectsData = [
         ...(ownedProjects || []),
-        ...(membershipData?.map(m => m.projects).filter(Boolean) || [])
+        ...memberProjects
       ].filter((p, index, arr) => arr.findIndex(x => x?.id === p?.id) === index);
 
       // Collect all unique user IDs
@@ -130,7 +133,9 @@ export default function UsersPage() {
       userIds.add(user!.id); // Add current user
 
       projectsData?.forEach(project => {
-        userIds.add(project.owner_id);
+        if (project) {
+          userIds.add(project.owner_id);
+        }
       });
       
       // Add members from all accessible projects
@@ -149,7 +154,7 @@ export default function UsersPage() {
       // Build user data (in a real app, you'd get this from auth.users via admin API)
       const usersData: UserData[] = Array.from(userIds).map(userId => {
         const preferences = preferencesData?.find(p => p.user_id === userId);
-        const ownedProjects = projectsData?.filter(p => p.owner_id === userId).length || 0;
+        const ownedProjects = projectsData?.filter(p => p?.owner_id === userId).length || 0;
         const memberProjects = allMembersData?.filter(m => m.user_id === userId).length || 0;
 
         return {
@@ -173,7 +178,13 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      loadUsers();
+    }
+  }, [user, authLoading, loadUsers]);
 
   const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>, userData: UserData) => {
     setMenuAnchor(event.currentTarget);
@@ -193,11 +204,11 @@ export default function UsersPage() {
   };
 
   const filteredUsers = users.filter(userData =>
-    userData.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (userData.email && userData.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (userData.display_name && userData.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'Never';
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -228,7 +239,7 @@ export default function UsersPage() {
 
       {/* Search and Stats */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <TextField
             fullWidth
             placeholder="Search users by email or name..."
@@ -243,7 +254,7 @@ export default function UsersPage() {
             }}
           />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
               <Box sx={{ textAlign: 'center' }}>
@@ -300,11 +311,11 @@ export default function UsersPage() {
                           </Avatar>
                           <Box>
                             <Typography variant="subtitle2">
-                              {userData.display_name || userData.email}
+                              {userData.display_name || userData.email || 'No email'}
                               {userData.is_current_user && ' (You)'}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              {userData.email}
+                              {userData.email || 'No email available'}
                             </Typography>
                           </Box>
                         </Box>
@@ -411,18 +422,18 @@ export default function UsersPage() {
                 </Avatar>
                 <Box>
                   <Typography variant="h6">
-                    {selectedUser.display_name || selectedUser.email}
+                    {selectedUser.display_name || selectedUser.email || 'No email'}
                     {selectedUser.is_current_user && ' (You)'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {selectedUser.email}
+                    {selectedUser.email || 'No email available'}
                   </Typography>
                 </Box>
               </Box>
             </DialogTitle>
             <DialogContent>
               <Grid container spacing={2}>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     User ID
                   </Typography>
@@ -430,7 +441,7 @@ export default function UsersPage() {
                     {selectedUser.id.substring(0, 8)}...
                   </Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Status
                   </Typography>
@@ -440,7 +451,7 @@ export default function UsersPage() {
                     size="small"
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Total Projects
                   </Typography>
@@ -448,7 +459,7 @@ export default function UsersPage() {
                     {selectedUser.total_projects}
                   </Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Owned Projects
                   </Typography>
@@ -456,7 +467,7 @@ export default function UsersPage() {
                     {selectedUser.owned_projects}
                   </Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Joined Date
                   </Typography>
@@ -464,7 +475,7 @@ export default function UsersPage() {
                     {formatDate(selectedUser.created_at)}
                   </Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Last Active
                   </Typography>

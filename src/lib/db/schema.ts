@@ -10,9 +10,7 @@ import {
   pgEnum,
   inet,
   decimal,
-  integer
 } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
 
 // Enums
 export const privacyLevelEnum = pgEnum('privacy_level', ['private', 'team', 'public']);

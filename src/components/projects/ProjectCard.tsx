@@ -8,8 +8,6 @@ import {
   Button,
   Chip,
   Box,
-  Avatar,
-  Tooltip,
   IconButton,
   Menu,
   MenuItem
@@ -55,8 +53,8 @@ export default function ProjectCard({ project, onEdit, onDelete, onShare }: Proj
   
   // Get project permissions based on ownership and user role
   const permissions = useProjectPermissions(
-    project.owner_id, 
-    project.is_owner ? undefined : project.role
+    project.owner_id,
+    project.is_owner ? undefined : (project.role === 'owner' ? undefined : project.role)
   );
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {

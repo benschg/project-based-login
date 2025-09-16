@@ -1,7 +1,10 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useAuth, signOut } from '@/hooks/useAuth';
-import { useEffect, useState } from 'react';
+import { User } from '@supabase/supabase-js';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Container,
   Typography,
@@ -15,13 +18,24 @@ import {
   Chip,
   Grid,
 } from '@mui/material';
+
+// Types
+interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  privacy_level: string;
+  created_at: string;
+  updated_at: string;
+  owner_id: string;
+}
+
 import { 
   ExitToApp, 
   AccountCircle, 
   Dashboard as DashboardIcon,
   FolderOpen,
   People,
-  Settings,
   Add,
   TrendingUp,
   Assignment
@@ -80,7 +94,7 @@ export default function DashboardPage() {
 }
 
 // Dashboard content component
-function DashboardContent({ user, onSignOut }: { user: any; onSignOut: () => void }) {
+function DashboardContent({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const router = useRouter();
   const [stats, setStats] = useState({
     totalProjects: 0,
@@ -88,14 +102,10 @@ function DashboardContent({ user, onSignOut }: { user: any; onSignOut: () => voi
     sharedProjects: 0,
     totalMembers: 0
   });
-  const [recentProjects, setRecentProjects] = useState<any[]>([]);
+  const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       // Get owned projects
       const { data: ownedProjects, error: ownedError } = await supabase
@@ -117,11 +127,13 @@ function DashboardContent({ user, onSignOut }: { user: any; onSignOut: () => voi
         .eq('user_id', user.id);
 
       // Combine all projects
-      const allProjects = [...(ownedProjects || [])];
+      const allProjects: Project[] = [...(ownedProjects || [])];
       if (membershipData && !membershipError) {
         membershipData.forEach(membership => {
-          if (membership.projects && !allProjects.find(p => p.id === membership.projects.id)) {
-            allProjects.push(membership.projects);
+          // Handle both single project and array of projects
+          const project = Array.isArray(membership.projects) ? membership.projects[0] : membership.projects;
+          if (project && !allProjects.find(p => p.id === project.id)) {
+            allProjects.push(project);
           }
         });
       }
@@ -155,7 +167,11 @@ function DashboardContent({ user, onSignOut }: { user: any; onSignOut: () => voi
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   return (
     <>
@@ -188,7 +204,7 @@ function DashboardContent({ user, onSignOut }: { user: any; onSignOut: () => voi
                 Welcome back!
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {user.email}
+                {user.email || 'No email available'}
               </Typography>
             </Box>
           </Stack>
@@ -199,15 +215,15 @@ function DashboardContent({ user, onSignOut }: { user: any; onSignOut: () => voi
               variant="outlined" 
               size="small" 
             />
-            <Chip 
-              label={user.email_confirmed_at ? 'Email Verified' : 'Email Pending'} 
+            <Chip
+              label={user.email_confirmed_at ? 'Email Verified' : 'Email Pending'}
               color={user.email_confirmed_at ? 'success' : 'warning'}
-              size="small" 
+              size="small"
             />
-            <Chip 
-              label={`Joined: ${new Date(user.created_at).toLocaleDateString()}`} 
-              variant="outlined" 
-              size="small" 
+            <Chip
+              label={`Joined: ${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}`}
+              variant="outlined"
+              size="small"
             />
           </Stack>
         </CardContent>
@@ -220,7 +236,7 @@ function DashboardContent({ user, onSignOut }: { user: any; onSignOut: () => voi
         </Box>
       ) : (
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card sx={{ cursor: 'pointer' }} onClick={() => router.push('/dashboard/projects')}>
               <CardContent>
                 <Stack direction="row" spacing={2} alignItems="center">
@@ -233,7 +249,7 @@ function DashboardContent({ user, onSignOut }: { user: any; onSignOut: () => voi
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card>
               <CardContent>
                 <Stack direction="row" spacing={2} alignItems="center">
@@ -246,7 +262,7 @@ function DashboardContent({ user, onSignOut }: { user: any; onSignOut: () => voi
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card>
               <CardContent>
                 <Stack direction="row" spacing={2} alignItems="center">
@@ -259,7 +275,7 @@ function DashboardContent({ user, onSignOut }: { user: any; onSignOut: () => voi
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card>
               <CardContent>
                 <Stack direction="row" spacing={2} alignItems="center">
@@ -390,7 +406,7 @@ function DashboardContent({ user, onSignOut }: { user: any; onSignOut: () => voi
               '📈 Progress Tracking',
               '⚙️ Custom Workflows'
             ].map((feature, index) => (
-              <Grid item xs={12} sm={6} key={index}>
+              <Grid size={{ xs: 12, sm: 6 }} key={index}>
                 <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                   <Typography variant="body2">
                     {feature}

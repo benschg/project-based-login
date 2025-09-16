@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { paymentService } from '@/lib/services/paymentService';
 import { createServerClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerClient(await cookies());
+    const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

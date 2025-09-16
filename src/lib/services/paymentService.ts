@@ -1,10 +1,15 @@
 import Stripe from 'stripe';
-import { db, userCredits, transactions } from '@/lib/db';
+import { db, userCredits, transactions, projects } from '@/lib/db';
 import { eq, sql } from 'drizzle-orm';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia',
-});
+const getStripe = () => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is required');
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2025-08-27.basil',
+  });
+};
 
 export interface CreateCheckoutSessionData {
   userId: string;
@@ -47,6 +52,7 @@ export const paymentService = {
     }).returning({ id: transactions.id });
 
     // Create Stripe checkout session
+    const stripe = getStripe();
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -90,6 +96,7 @@ export const paymentService = {
   },
 
   async handleSuccessfulPayment(sessionId: string): Promise<void> {
+    const stripe = getStripe();
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     
     if (session.payment_status !== 'paid') {
@@ -188,7 +195,7 @@ export const paymentService = {
       // Update project budget
       await tx.execute(
         sql`
-          UPDATE ${db.projects} 
+          UPDATE ${projects} 
           SET budget_amount = budget_amount + ${data.amount}
           WHERE id = ${data.projectId}
         `
@@ -198,7 +205,15 @@ export const paymentService = {
     });
   },
 
-  async getTransactionHistory(userId: string, limit = 50): Promise<any[]> {
+  async getTransactionHistory(userId: string, limit = 50): Promise<Array<{
+    id: string;
+    type: string;
+    status: string;
+    amount: string;
+    currency: string;
+    description: string | null;
+    createdAt: Date;
+  }>> {
     return await db
       .select({
         id: transactions.id,
@@ -230,6 +245,7 @@ export const paymentService = {
 
     if (transaction.stripePaymentIntentId) {
       // Process Stripe refund
+      const stripe = getStripe();
       await stripe.refunds.create({
         payment_intent: transaction.stripePaymentIntentId,
         reason: 'requested_by_customer',

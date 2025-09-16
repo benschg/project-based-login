@@ -13,7 +13,6 @@ import {
   FolderOpen,
   People,
   Settings,
-  Person
 } from '@mui/icons-material';
 
 interface BreadcrumbItem {
@@ -55,7 +54,6 @@ export default function Breadcrumbs() {
             
             // If viewing specific project
             if (pathSegments.length > 2) {
-              const projectId = pathSegments[2];
               breadcrumbs.push({
                 label: 'Project Details',
                 icon: <FolderOpen fontSize="small" />

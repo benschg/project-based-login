@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { projectService } from '@/lib/services/projectService';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Create Supabase client for auth
     const cookieStore = await cookies();

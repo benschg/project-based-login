@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+export const dynamic = 'force-dynamic';
+
+import { useEffect, useState, useCallback } from 'react';
 import {
   Container,
   Typography,
@@ -25,7 +27,6 @@ import {
   Public
 } from '@mui/icons-material';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/lib/supabase/client';
 import CreateProjectDialog from '@/components/projects/CreateProjectDialog';
 import ProjectCard from '@/components/projects/ProjectCard';
 
@@ -42,6 +43,19 @@ interface Project {
   role?: 'owner' | 'admin' | 'member';
 }
 
+interface ProjectApiResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  privacyLevel: string;
+  createdAt: string;
+  updatedAt: string;
+  ownerId: string;
+  isOwner: boolean;
+  memberCount: number;
+  role?: string;
+}
+
 export default function ProjectsPage() {
   const { user, loading: authLoading } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -51,7 +65,7 @@ export default function ProjectsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState(0);
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -66,17 +80,17 @@ export default function ProjectsPage() {
       const { projects: projectSummaries } = await response.json();
       
       // Transform to match the existing interface
-      const transformedProjects: Project[] = projectSummaries.map((project: any) => ({
+      const transformedProjects: Project[] = (projectSummaries as ProjectApiResponse[]).map((project) => ({
         id: project.id,
         name: project.name,
         description: project.description,
-        privacy_level: project.privacyLevel,
-        created_at: new Date(project.createdAt).toISOString(),
-        updated_at: new Date(project.updatedAt).toISOString(),
+        privacy_level: project.privacyLevel as 'private' | 'team' | 'public',
+        created_at: project.createdAt,
+        updated_at: project.updatedAt,
         owner_id: project.ownerId,
         is_owner: project.isOwner,
         member_count: project.memberCount,
-        role: project.role
+        role: project.role as 'owner' | 'admin' | 'member' | undefined
       }));
 
       setProjects(transformedProjects);
@@ -86,13 +100,13 @@ export default function ProjectsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     if (!authLoading && user) {
       loadProjects();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, loadProjects]);
 
   const handleProjectCreated = () => {
     loadProjects();
@@ -246,7 +260,7 @@ export default function ProjectsPage() {
           ) : (
             <Grid container spacing={3}>
               {filteredProjects.map((project) => (
-                <Grid item xs={12} sm={6} lg={4} key={project.id}>
+                <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={project.id}>
                   <ProjectCard
                     project={project}
                     onEdit={() => {/* TODO: Implement edit */}}

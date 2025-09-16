@@ -71,7 +71,7 @@ export default function CreateProjectDialog({ open, onClose, onProjectCreated }:
         throw new Error(errorData.error || 'Failed to create project');
       }
 
-      const { project } = await response.json();
+      await response.json();
 
       // Reset form and close dialog
       setFormData({ name: '', description: '', privacy_level: 'private' });

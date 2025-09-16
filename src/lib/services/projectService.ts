@@ -1,5 +1,5 @@
 import { db, projects, projectMembers, projectInvitations, gdprAuditLog } from '@/lib/db';
-import { eq, and, sql, count } from 'drizzle-orm';
+import { eq, and, count } from 'drizzle-orm';
 
 export interface CreateProjectData {
   name: string;
@@ -20,7 +20,7 @@ export interface ProjectWithMembers {
     id: string;
     userId: string;
     role: 'owner' | 'admin' | 'member' | 'viewer';
-    permissions: any;
+    permissions: Record<string, unknown>;
     invitedBy: string | null;
     joinedAt: Date;
   }>;
@@ -66,26 +66,26 @@ export const projectService = {
       .where(eq(projectMembers.userId, userId));
 
     // Combine and deduplicate
-    const allProjectsMap = new Map<string, any>();
+    const allProjectsMap = new Map<string, ProjectSummary>();
     
     // Add owned projects
     ownedProjects.forEach(project => {
       allProjectsMap.set(project.id, { 
         ...project, 
-        isOwner: true, 
+        isOwner: true,
         role: 'owner' as const,
-        userRole: 'owner' as const
+        memberCount: 1
       });
     });
     
     // Add member projects
     memberProjects.forEach(({ project, member }) => {
       if (!allProjectsMap.has(project.id)) {
-        allProjectsMap.set(project.id, { 
-          ...project, 
-          isOwner: false, 
-          role: member.role,
-          userRole: member.role
+        allProjectsMap.set(project.id, {
+          ...project,
+          isOwner: false,
+          role: member.role === 'viewer' ? 'member' : member.role,
+          memberCount: 1
         });
       }
     });
@@ -109,7 +109,7 @@ export const projectService = {
           ownerId: project.ownerId,
           isOwner: project.isOwner,
           memberCount: (memberCountResult?.count || 0) + 1, // +1 for owner
-          role: project.userRole
+          role: project.role
         };
       })
     );
@@ -133,7 +133,7 @@ export const projectService = {
         id: member.id,
         userId: member.userId,
         role: member.role,
-        permissions: member.permissions,
+        permissions: member.permissions as Record<string, unknown>,
         invitedBy: member.invitedBy,
         joinedAt: member.joinedAt,
       }))
@@ -173,12 +173,12 @@ export const projectService = {
   async logGdprAction(
     userId: string, 
     action: string, 
-    details: any, 
+    details: Record<string, unknown>, 
     userAgent?: string
   ): Promise<void> {
     await db.insert(gdprAuditLog).values({
       userId,
-      action: action as any,
+      action: action as 'consent_given' | 'consent_withdrawn' | 'data_exported' | 'data_deleted' | 'account_created' | 'member_invited' | 'invitation_created' | 'member_removed' | 'member_role_changed' | 'invitations_claimed',
       details,
       userAgent,
     });

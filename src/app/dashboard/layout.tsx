@@ -28,7 +28,6 @@ import {
   People,
   Settings,
   ExitToApp,
-  AccountCircle,
   Person,
   AccountBalance
 } from '@mui/icons-material';

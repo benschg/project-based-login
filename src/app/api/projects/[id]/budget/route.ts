@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { paymentService } from '@/lib/services/paymentService';
 import { createServerClient } from '@/lib/supabase/server';
 import { projectService } from '@/lib/services/projectService';
-import { cookies } from 'next/headers';
 
 export async function POST(
   request: NextRequest,
@@ -10,7 +9,7 @@ export async function POST(
 ) {
   try {
     const { id: projectId } = await params;
-    const supabase = await createServerClient(await cookies());
+    const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

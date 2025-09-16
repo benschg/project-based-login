@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -41,7 +41,7 @@ export default function PendingInvitations({ projectId, onInvitationRevoked }: P
   const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadInvitations = async () => {
+  const loadInvitations = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -63,7 +63,7 @@ export default function PendingInvitations({ projectId, onInvitationRevoked }: P
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   const revokeInvitation = async (invitationId: string) => {
     try {
@@ -87,7 +87,7 @@ export default function PendingInvitations({ projectId, onInvitationRevoked }: P
 
   useEffect(() => {
     loadInvitations();
-  }, [projectId]);
+  }, [projectId, loadInvitations]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

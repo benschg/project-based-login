@@ -19,7 +19,7 @@ export default function AuthCallback() {
         
         if (accessToken && refreshToken) {
           // Set the session with the tokens from the URL
-          const { data, error } = await supabase.auth.setSession({
+          const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken
           });
@@ -32,7 +32,7 @@ export default function AuthCallback() {
         }
         
         // Now get the current session
-        const { data, error } = await supabase.auth.getSession();
+        const { data: sessionData, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Session error:', error);
@@ -40,8 +40,8 @@ export default function AuthCallback() {
           return;
         }
 
-        if (data?.session?.user) {
-          const session = data.session;
+        if (sessionData?.session?.user) {
+          const session = sessionData.session;
           const user = session.user;
           
           // Log successful authentication for GDPR compliance

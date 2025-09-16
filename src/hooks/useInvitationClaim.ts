@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { useAuth } from './useAuth';
-import { supabase } from '@/lib/supabase/client';
 
 export function useInvitationClaim() {
   const { user } = useAuth();

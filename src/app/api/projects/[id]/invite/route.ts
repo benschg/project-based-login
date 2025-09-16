@@ -5,7 +5,7 @@ import { projectService } from '@/lib/services/projectService';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Create Supabase client for auth
@@ -36,7 +36,7 @@ export async function POST(
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    const projectId = params.id;
+    const { id: projectId } = await params;
 
     // Invite member using Drizzle
     const invitation = await projectService.inviteMember(

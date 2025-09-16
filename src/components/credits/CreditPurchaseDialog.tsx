@@ -122,7 +122,7 @@ export default function CreditPurchaseDialog({
 
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {predefinedAmounts.map((presetAmount) => (
-            <Grid item xs={6} sm={4} key={presetAmount}>
+            <Grid size={{ xs: 6, sm: 4 }} key={presetAmount}>
               <Card 
                 sx={{ 
                   cursor: 'pointer',

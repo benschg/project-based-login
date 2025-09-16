@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Paper,
   Typography,
@@ -15,7 +15,6 @@ import {
   CircularProgress,
   Alert,
   IconButton,
-  Collapse,
 } from '@mui/material';
 import {
   History,
@@ -50,11 +49,7 @@ export default function TransactionHistory({ limit = 20 }: TransactionHistoryPro
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [limit]);
-
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/credits/transactions?limit=${limit}`);
@@ -70,7 +65,11 @@ export default function TransactionHistory({ limit = 20 }: TransactionHistoryPro
     } finally {
       setLoading(false);
     }
-  };
+  }, [limit]);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [limit, fetchTransactions]);
 
   const formatCurrency = (amount: string, currency: string) => {
     const symbols = { usd: '$', eur: '€', gbp: '£' };

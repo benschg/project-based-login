@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+export const dynamic = 'force-dynamic';
+
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Container,
@@ -20,7 +22,6 @@ import {
   CircularProgress,
   Tabs,
   Tab,
-  Divider
 } from '@mui/material';
 import {
   ArrowBack,
@@ -91,7 +92,7 @@ export default function ProjectDetailPage() {
     project?.is_owner ? undefined : userRole
   );
 
-  const loadProject = async () => {
+  const loadProject = useCallback(async () => {
     if (!user || !projectId) return;
 
     try {
@@ -176,16 +177,9 @@ export default function ProjectDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, projectId]);
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      loadProject();
-      loadUserBalance();
-    }
-  }, [user, authLoading, projectId]);
-
-  const loadUserBalance = async () => {
+  const loadUserBalance = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -197,7 +191,14 @@ export default function ProjectDetailPage() {
     } catch (err) {
       console.error('Failed to load user balance:', err);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      loadProject();
+      loadUserBalance();
+    }
+  }, [user, authLoading, projectId, loadProject, loadUserBalance]);
 
   const handleBudgetAssigned = () => {
     loadProject();
@@ -475,13 +476,13 @@ export default function ProjectDetailPage() {
       {activeTab === 0 && (
         <Grid container spacing={3}>
           {/* Project Stats */}
-          <Grid item xs={12} md={8}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <Paper sx={{ p: 3, mb: 3 }}>
               <Typography variant="h6" gutterBottom>
                 Project Overview
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h4" color="primary">
                       {getTotalMemberCount()}
@@ -491,7 +492,7 @@ export default function ProjectDetailPage() {
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h4" color="primary">
                       0
@@ -501,7 +502,7 @@ export default function ProjectDetailPage() {
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h4" color="primary">
                       0
@@ -511,7 +512,7 @@ export default function ProjectDetailPage() {
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h4" color="primary">
                       0
@@ -535,7 +536,7 @@ export default function ProjectDetailPage() {
           </Grid>
 
           {/* Project Details */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
                 Project Details
@@ -574,7 +575,7 @@ export default function ProjectDetailPage() {
 
       {activeTab === 1 && (
         <Grid container spacing={3}>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Paper sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h6">
@@ -648,10 +649,9 @@ export default function ProjectDetailPage() {
                       </Box>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Chip 
-                        label={member.role} 
+                      <Chip
+                        label={member.role}
                         color={
-                          member.role === 'owner' ? 'primary' :
                           member.role === 'admin' ? 'secondary' : 'default'
                         }
                         size="small"
@@ -689,7 +689,7 @@ export default function ProjectDetailPage() {
 
       {activeTab === 2 && (
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Paper sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
                 <AccountBalance color="primary" />
@@ -717,7 +717,7 @@ export default function ProjectDetailPage() {
             </Paper>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
                 Your Account Balance
@@ -745,7 +745,7 @@ export default function ProjectDetailPage() {
             </Paper>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
                 Budget Usage

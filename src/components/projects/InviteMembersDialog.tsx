@@ -15,7 +15,6 @@ import {
   Box,
   Alert,
   CircularProgress,
-  Chip,
   Typography,
   List,
   ListItem,
